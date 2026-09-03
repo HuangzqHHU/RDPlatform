@@ -79,8 +79,32 @@ pub fn today_iso() -> String                                    // 已实现
 ### 演示账号（seed 已写入）
 pm1/pm123（项目经理）dev1/dv123（开发）qa1/qa123（测试）
 
-## 四、两天进度
+### 页面表单字段契约（C 必读——与 api.rs 的 req.param() 严格一致）
 
+| 表单 action | 字段（name=） | 说明 |
+|---|---|---|
+| POST /project | `name` `desc` `budget` `start` `deadline` | 新建项目；name 必填 |
+| POST /member | `username` `password` `name` `role` `rate` | 新增成员；role 取值 Pm/Dev/Qa |
+| POST /task?action=new | `project_id` `title` `assignee` `priority` `estimate_hours` `deadline` | 新建任务；title 必填；priority 取 高/中/低 |
+| POST /task?action=status | `task_id` `status` | 流转状态；status 取 待办/进行/完成 |
+| POST /timesheet | `task_id` `date` `hours` `note` | 登记工时；hours>0 |
+
+**C 页面调用约定**：
+- 页面函数只返回 HTML 主体，api.rs 已统一 http_response 包装与 save；
+- 数据来源直接调 store 方法（统计见上节；列表用 `store.members/projects/tasks/timesheets` 字段 + `task_by_id/member_by_id` 关联显示）；
+- 超预估预警：`store.task_hours(task_id) > task.estimate_hours` 时在工时登记页/任务页提示；
+- 逾期标红：仪表盘调 `store.overdue_tasks(store.today_iso())`；
+- 所有用户数据渲染前必须 `http::html_escape`。
+
+### D 测试约定
+- auth 单测（已有 3 个基线）+ HTTP 登录流程集成测试：
+  POST /login → 302 + Set-Cookie → 带 Cookie GET / → 200；
+  dev1 访问 /dashboard → 403；
+- store 统计单测已由 B 提供 9 个，D 复核即可；
+- tests/ 文件命名：`login_tests.rs`（D）。
+
+
+## 四、两天进度
 ```
 Day1
  09:00-09:30 契约会：A 宣读本文档（路由/字段/统计签名），全员确认

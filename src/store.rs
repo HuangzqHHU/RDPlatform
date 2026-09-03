@@ -1,11 +1,13 @@
-//! 数据持久化与统计（成员B负责；本文件为组长提供的完整参考实现，请 B 逐行理解）
+//! 数据持久化与统计（成员B负责）
 //!
-//! 契约：
+//! 契约（勿改签名，以组长确认版为准）：
 //!   - Store 整体以 JSON 序列化到 data/db.json（path 字段不入盘）；
 //!   - 成本口径：实际成本 = Σ(工时小时数 × 登记工时成员的小时费率)；
 //!   - 进度口径：完成任务数 / 项目总任务数；
 //!   - 估算偏差 = 项目任务 Σ实际工时 - Σ预估工时（正数表示超估）；
-//!   - 逾期 = 状态非"完成" 且 deadline < today（YYYY-MM-DD 字符串比较即时间序）。
+//!   - 逾期 = 状态非"完成" 且 deadline < today（YYYY-MM-DD 字符串比较即时间序）；
+//!   - 另提供 member_tasks / member_timesheets 供"我的视图"（C）调用；
+//!   - 测试：9 个基线（组长提供）+ 2 个 seed 复核（成员B补充）。
 
 use crate::auth;
 use crate::model::*;
@@ -438,5 +440,88 @@ mod tests {
         // 我的视图
         assert_eq!(s.member_tasks(2).len(), 1);
         assert_eq!(s.member_timesheets(3).len(), 1);
+    }
+
+    // ---- seed 复核（成员B补充） ----
+
+    #[test]
+    fn seed_content_and_idempotent() {
+        let mut s = Store::new();
+        s.seed();
+
+        // 3 个演示账号：字段逐一核对，密码哈希可验且不含明文
+        assert_eq!(s.members.len(), 3);
+        let pm = s.member_by_id(1).unwrap();
+        assert_eq!(
+            (pm.username.as_str(), pm.name.as_str(), pm.rate),
+            ("pm1", "王经理", 300.0)
+        );
+        assert_eq!(pm.role, Role::Pm);
+        assert!(crate::auth::verify_password("pm123", &pm.password_hash));
+        assert!(!pm.password_hash.contains("pm123"));
+        let dev = s.member_by_id(2).unwrap();
+        assert_eq!(
+            (dev.username.as_str(), dev.name.as_str(), dev.rate),
+            ("dev1", "李开发", 200.0)
+        );
+        assert!(crate::auth::verify_password("dv123", &dev.password_hash));
+        let qa = s.member_by_id(3).unwrap();
+        assert_eq!(
+            (qa.username.as_str(), qa.name.as_str(), qa.rate),
+            ("qa1", "赵测试", 150.0)
+        );
+        assert!(crate::auth::verify_password("qa123", &qa.password_hash));
+        assert!(!crate::auth::verify_password("wrong", &pm.password_hash));
+
+        // 自增 id 与示例项目/任务字段、引用一致性
+        assert_eq!(s.next_id, 4);
+        assert!(s.timesheets.is_empty());
+        let p = s.project_by_id(1).unwrap();
+        assert_eq!(p.name, "智慧校园 App");
+        assert_eq!(p.budget, 100000.0);
+        assert_eq!((p.start.as_str(), p.deadline.as_str()), ("2026-09-01", "2026-12-31"));
+        assert_eq!(p.status, consts::PRJ_ACTIVE);
+        let t = s.task_by_id(1).unwrap();
+        assert_eq!(t.title, "用户登录模块");
+        assert_eq!((t.project_id, t.assignee), (1, Some(2)));
+        assert_eq!(t.priority, consts::P_HIGH);
+        assert_eq!(t.status, consts::T_TODO);
+        assert_eq!(t.estimate_hours, 40.0);
+        assert_eq!(t.deadline, "2026-09-15");
+        assert!(s.project_by_id(t.project_id).is_some());
+        assert!(s.member_by_id(t.assignee.unwrap()).is_some());
+
+        // 幂等：重复播种不叠加
+        s.seed();
+        assert_eq!(s.members.len(), 3);
+        assert_eq!(s.next_id, 4);
+    }
+
+    #[test]
+    fn seed_persist_and_reload_roundtrip() {
+        // 模拟 main.rs 首启流程：空库 → seed → save；重启 load → 再 seed 不重复
+        let path = "target/seed_review_tmp.json";
+        let _ = std::fs::remove_file(path);
+        let mut s = Store::new();
+        s.path = path.to_string();
+        s.seed();
+        assert!(s.save().is_ok());
+
+        let loaded = Store::load(path).unwrap();
+        assert_eq!(loaded.members.len(), 3);
+        assert_eq!(loaded.next_id, 4);
+        let mut loaded = loaded;
+        loaded.seed();
+        assert_eq!(loaded.members.len(), 3);
+        assert_eq!(loaded.projects.len(), 1);
+        assert_eq!(loaded.tasks.len(), 1);
+        assert!(crate::auth::verify_password(
+            "pm123",
+            &loaded.member_by_id(1).unwrap().password_hash
+        ));
+        assert_eq!(loaded.project_by_id(1).unwrap().budget, 100000.0);
+        assert_eq!(loaded.task_by_id(1).unwrap().title, "用户登录模块");
+
+        let _ = std::fs::remove_file(path);
     }
 }
