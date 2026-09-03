@@ -60,12 +60,10 @@ impl Store {
 
     /// 保存到文件（自动创建目录）
     pub fn save(&self) -> Result<(), String> {
-        let json =
-            serde_json::to_string_pretty(self).map_err(|e| format!("序列化失败: {}", e))?;
+        let json = serde_json::to_string_pretty(self).map_err(|e| format!("序列化失败: {}", e))?;
         if let Some(parent) = Path::new(&self.path).parent() {
             if !parent.as_os_str().is_empty() {
-                std::fs::create_dir_all(parent)
-                    .map_err(|e| format!("创建数据目录失败: {}", e))?;
+                std::fs::create_dir_all(parent).map_err(|e| format!("创建数据目录失败: {}", e))?;
             }
         }
         std::fs::write(&self.path, json).map_err(|e| format!("写入数据文件失败: {}", e))
@@ -93,9 +91,12 @@ impl Store {
             role,
             rate,
         };
-        self.members.push(mk(1, "pm1", "pm123", "王经理", Role::Pm, 300.0));
-        self.members.push(mk(2, "dev1", "dv123", "李开发", Role::Dev, 200.0));
-        self.members.push(mk(3, "qa1", "qa123", "赵测试", Role::Qa, 150.0));
+        self.members
+            .push(mk(1, "pm1", "pm123", "王经理", Role::Pm, 300.0));
+        self.members
+            .push(mk(2, "dev1", "dv123", "李开发", Role::Dev, 200.0));
+        self.members
+            .push(mk(3, "qa1", "qa123", "赵测试", Role::Qa, 150.0));
         self.next_id = 4;
 
         self.projects.push(Project {

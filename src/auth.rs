@@ -43,10 +43,7 @@ pub fn create_session(member_id: u32) -> String {
     let mut hasher = Sha256::new();
     hasher.update(format!("{}:{}:{}", nanos, member_id, rand_seed_counter()).as_bytes());
     let token = format!("{:x}", hasher.finalize());
-    sessions()
-        .lock()
-        .unwrap()
-        .insert(token.clone(), member_id);
+    sessions().lock().unwrap().insert(token.clone(), member_id);
     token
 }
 
@@ -102,8 +99,14 @@ mod tests {
 
     #[test]
     fn cookie_token_parse() {
-        assert_eq!(token_from_cookie("token=abc; foo=1"), Some("abc".to_string()));
-        assert_eq!(token_from_cookie("foo=1; token=xyz"), Some("xyz".to_string()));
+        assert_eq!(
+            token_from_cookie("token=abc; foo=1"),
+            Some("abc".to_string())
+        );
+        assert_eq!(
+            token_from_cookie("foo=1; token=xyz"),
+            Some("xyz".to_string())
+        );
         assert_eq!(token_from_cookie("foo=1"), None);
     }
 }
