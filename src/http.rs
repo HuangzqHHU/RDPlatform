@@ -196,9 +196,12 @@ pub fn redirect_with_cookie(location: &str, cookie: &str) -> String {
 }
 
 /// 服务主循环：accept → 解析 → handler → 响应 → 关闭
+///
+/// 单线程顺序处理连接：handler 不需要 Send/Sync（主调用方持有状态即可），
+/// 因此 main.rs 可用 RefCell<Store> 提供内部可变性。
 pub fn serve_loop<F>(listener: TcpListener, handler: F)
 where
-    F: Fn(&HttpRequest) -> String + Send + Sync + 'static,
+    F: Fn(&HttpRequest) -> String + 'static,
 {
     for stream in listener.incoming() {
         let stream = match stream {
