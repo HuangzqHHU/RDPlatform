@@ -2,7 +2,7 @@
 
 use rdplatform::api;
 use rdplatform::http;
-use rdplatform::store::{Store, DEFAULT_DATA_FILE};
+use rdplatform::store::{DEFAULT_DATA_FILE, Store};
 use std::cell::RefCell;
 use std::net::TcpListener;
 

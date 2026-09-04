@@ -90,9 +90,9 @@ fn handle_authed(req: &HttpRequest, store: &mut Store) -> String {
     match (req.method.as_str(), req.path.as_str()) {
         ("GET", "/") => http_response_html(&page::home_html(&member)),
         // ---- PM 专属 ----
-        ("GET", "/dashboard") => pm_only(&member, || {
-            http_response_html(&page::dashboard_html(store))
-        }),
+        ("GET", "/dashboard") => {
+            pm_only(&member, || http_response_html(&page::dashboard_html(store)))
+        }
         ("GET", "/projects") => pm_only(&member, || {
             http_response_html(&page::projects_html(store, None))
         }),
@@ -151,7 +151,10 @@ fn create_project(req: &HttpRequest, store: &mut Store) {
         id: store.alloc_id(),
         name: req.param("name").unwrap_or_default(),
         desc: req.param("desc").unwrap_or_default(),
-        budget: req.param("budget").and_then(|s| s.parse().ok()).unwrap_or(0.0),
+        budget: req
+            .param("budget")
+            .and_then(|s| s.parse().ok())
+            .unwrap_or(0.0),
         start: req.param("start").unwrap_or_default(),
         deadline: req.param("deadline").unwrap_or_default(),
         status: consts::PRJ_ACTIVE.to_string(),
@@ -173,7 +176,10 @@ fn create_member(req: &HttpRequest, store: &mut Store) {
         password_hash: auth::hash_password(&req.param("password").unwrap_or_default()),
         name: req.param("name").unwrap_or_default(),
         role,
-        rate: req.param("rate").and_then(|s| s.parse().ok()).unwrap_or(100.0),
+        rate: req
+            .param("rate")
+            .and_then(|s| s.parse().ok())
+            .unwrap_or(100.0),
     };
     if !member.username.is_empty() && !member.name.is_empty() {
         let _ = store.add_member(member);
@@ -194,10 +200,15 @@ fn update_task(req: &HttpRequest, store: &mut Store) {
     } else if action == "new" {
         let task = Task {
             id: store.alloc_id(),
-            project_id: req.param("project_id").and_then(|s| s.parse().ok()).unwrap_or(0),
+            project_id: req
+                .param("project_id")
+                .and_then(|s| s.parse().ok())
+                .unwrap_or(0),
             title: req.param("title").unwrap_or_default(),
             assignee: req.param("assignee").and_then(|s| s.parse().ok()),
-            priority: req.param("priority").unwrap_or_else(|| consts::P_MEDIUM.to_string()),
+            priority: req
+                .param("priority")
+                .unwrap_or_else(|| consts::P_MEDIUM.to_string()),
             status: consts::T_TODO.to_string(),
             estimate_hours: req
                 .param("estimate_hours")
@@ -215,10 +226,16 @@ fn update_task(req: &HttpRequest, store: &mut Store) {
 fn add_timesheet(req: &HttpRequest, store: &mut Store, member_id: u32) {
     let sheet = Timesheet {
         id: store.alloc_id(),
-        task_id: req.param("task_id").and_then(|s| s.parse().ok()).unwrap_or(0),
+        task_id: req
+            .param("task_id")
+            .and_then(|s| s.parse().ok())
+            .unwrap_or(0),
         member_id,
         date: req.param("date").unwrap_or_else(Store::today_iso),
-        hours: req.param("hours").and_then(|s| s.parse().ok()).unwrap_or(0.0),
+        hours: req
+            .param("hours")
+            .and_then(|s| s.parse().ok())
+            .unwrap_or(0.0),
         note: req.param("note").unwrap_or_default(),
     };
     if sheet.task_id > 0 && sheet.hours > 0.0 {
